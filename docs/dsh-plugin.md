@@ -1,0 +1,206 @@
+# a-stock-data 的 DSH 插件形态
+
+本仓库原本是一个 **Claude Skill**：一个 432KB 的 `SKILL.md`，里面内嵌 91 段 Python，
+用文档 + 代码块的方式教模型「怎么写代码去取 A 股数据」。
+
+`a-stock-data-DSH` 分支在**不牺牲原有形态**的前提下，把它同时做成一个
+**DeepSeek Harness（DSH）插件**。根目录的 `SKILL.md` 一字未动，
+Claude Code / Codex / OpenClaw 等宿主照旧可用；DSH 走下面这套新装配。
+
+---
+
+## 1 为什么不是「把 SKILL.md 塞进插件就完了」
+
+只把文档装成技能，模型拿到的还是「一段可抄的代码」。抄写会带来三类问题：
+
+| 问题 | 后果 |
+| --- | --- |
+| 抄 100+ 个端点里的某一段 | 漏抄辅助函数 / 常量，`NameError` |
+| 抄完当次会话有效、下次重来 | 同一份实现被反复重写，行为不可复现 |
+| 文档与代码漂移 | SKILL.md 改了，抄本没人改 |
+
+所以这个插件做两件事，缺一不可：
+
+1. **随包技能**（rank 600）—— 把 `SKILL.md` 原样交给 DSH 的技能发现机制，
+   模型按需加载完整文档，知道有哪些端点、参数怎么传、坑在哪。
+2. **可调用的端点**（`astock_*` 工具）—— 把 SKILL.md 里内嵌的 Python
+   **在构建期**提取成一个可 import 的运行时，模型按名字调用，不再抄写。
+
+第 2 点是关键：**SKILL.md 仍是唯一事实来源**，运行时是它的派生物，
+由 `scripts/build_runtime.py` 生成、由 `scripts/check_skill_contract.py` 与
+`--check` 模式守护同步。
+
+---
+
+## 2 结构
+
+```
+a-stock-data/
+├── SKILL.md                          ← 唯一事实来源（未改动，其它宿主继续用）
+├── package.json                      ← DSH 插件清单：dsh.bundle.patch
+├── cordis.patch.yml                  ← 往 profile 组合树里插一行
+├── lib/
+│   ├── index.js                      ← 装配：注册工具 + 挂随包技能
+│   ├── runtime.js                    ← Python 桥：解释器探测 / 子进程 / JSON 解析
+│   └── tools/
+│       ├── probe.js                  ← astock_probe
+│       ├── env.js                    ← astock_env
+│       ├── endpoints.js              ← astock_endpoints
+│       └── call.js                   ← astock_call
+├── scripts/
+│   ├── build_runtime.py              ← SKILL.md → 运行时（生成器）
+│   ├── check_skill_contract.py       ← 随包 SKILL.md 是否满足 DSH 发现契约
+│   └── test-tools.mjs                ← 工具面自测（假 ctx，可选 --live 联网）
+└── skills/
+    └── a-stock-data/
+        ├── SKILL.md                  ← 由根 SKILL.md 同步（仅 frontmatter 归一）
+        ├── runtime/                  ← 生成物
+        │   ├── astock_runtime.py
+        │   └── endpoints.json
+        └── scripts/
+            └── astock_cli.py         ← 工具面调用的命令行入口
+```
+
+### 2.1 为什么运行时是「生成」的
+
+`astock_runtime.py` 由 `scripts/build_runtime.py` 从 `SKILL.md` 生成，绝不手抄。
+生成器只做一件事：把文档里的 ```python 块按顺序拼成一个模块，**丢掉示例调用**。
+
+判据是前向数据流，不是「像不像示例」：
+
+- 从 `builtins` + 已见过的 import 出发，按文档顺序逐条语句检查
+  「它执行时要查的名字此刻是否已绑好」；查不到就说明这条是用法演示。
+- 再加一条：模块级语句**不得调用 SKILL.md 自己定义的任何函数**。
+  真实初始化只碰外部库（`requests.Session()`、`HTTPAdapter(...)`、`EM_SESSION.headers.update(...)`）。
+
+这两条都是踩出来的：单看「右值有没有调用本文件函数」会放过
+`auction = ticks[ticks.time < "09:30:00"]`（下标不是调用）——而它依赖的 `ticks`
+上一行正是示例调用，结果是 import 阶段真的去打网络。
+
+### 2.2 软依赖策略
+
+`mootdx` 被**刻意当作可选**，原因不是懒：它要求 `httpx<0.26`，而宿主里的
+`litellm` / `mcp` 需要 `httpx>=0.27`，**装上会互相破坏**。`baostock` / `stockstats`
+同理只在少数端点用得上。
+
+缺失时运行时给它们装 stub，相关端点会**明确报错**，而不是静默返回空——
+「确实没有数据」与「接口坏了」必须能分开，这是 SKILL.md 自己反复强调的口径。
+
+---
+
+## 3 安装
+
+```bash
+# 1. 装 Python 依赖（mootdx 请勿装，见 §2.2）
+pip install requests pandas numpy stockstats baostock xlrd openpyxl
+
+# 2. 装插件（<profile> 换成你的 profile 名）
+dsh plugin --profile <profile> add <本仓库路径或 git 地址>
+```
+
+`dsh plugin add` 会读 `package.json` 的 `dsh.bundle.patch`，把本包追加进
+profile 的 `dsh.profile.bundles`，并创建到本仓库的链接。
+
+> **DSH Desktop 用户：** `desktop` profile 由 Electron 独占，装完**需要重启 DSH**
+> 才会加载新的 JS 模块（运行中的进程缓存已加载的模块）。
+
+装完先用探针确认：
+
+```
+astock_probe          # 版本 / 随包技能是否挂载 / Python 是否可用 / 工具面在册数
+astock_env            # 依赖体检，缺什么给什么 pip 命令
+```
+
+---
+
+## 4 工具面
+
+| 工具 | 联网 | 作用 |
+| --- | --- | --- |
+| `astock_probe` | 否 | 装机事实：版本、随包技能挂载、解释器、工具面此刻在册几个 |
+| `astock_env` | 否 | 环境体检：解释器 + 依赖 + 运行时指纹 |
+| `astock_endpoints` | 否 | 端点清单检索（名称 / 签名 / 一句话说明） |
+| `astock_call` | **是** | 调用一个端点取数 |
+
+四个都**只读**：不写文件、不改环境、无审批闸门。
+
+典型用法：
+
+```
+astock_endpoints { "query": "kline" }
+astock_call      { "endpoint": "tencent_kline", "args": { "code": "600519", "count": 60 } }
+astock_call      { "endpoint": "tencent_quote", "args": { "codes": ["600519", "000001"] } }
+astock_call      { "endpoint": "full_valuation", "args": { "code": "688017" } }
+```
+
+两道与「静默失败」有关的保护：
+
+- **大表截断**：`tdx_daily_package()` 一次返回 5 万行。默认最多回 200 行，
+  并在 `meta.truncated` 里如实标注，避免把前 200 行当成全量。
+- **参数类型拦截**：`tencent_quote(codes: list[str])` 拿到字符串不会报错，
+  它会按字符迭代、最后静默返回 `{}`。命令行入口按签名注解做浅层体检，
+  在进端点之前就以 `bad_args` 拦下，并给出正确的调用样例。
+
+---
+
+## 5 验证
+
+```bash
+# 生成物是否与 SKILL.md 同步（CI 用）
+python scripts/build_runtime.py --check
+
+# 随包 SKILL.md 是否满足 DSH 的发现契约
+python scripts/check_skill_contract.py
+
+# 工具面自测（假 ctx，复刻 Cordis 的 effect/register 语义）
+node scripts/test-tools.mjs           # 本地用例
+node scripts/test-tools.mjs --live    # 追加联网用例
+```
+
+`test-tools.mjs` 不是走形式：它用假 ctx **如实复刻**了 Cordis 的两条语义
+（`effect(callback)` 立刻调用并把返回值当清理函数；`register` 返回精确注销器），
+于是「工具注册后被自己的 disposer 立刻注销」这个经典事故会被
+`astock_probe` 的 `toolSurface.visibleAtCall` 直接抓出来。
+
+### 本分支的实测记录
+
+| 项目 | 结果 |
+| --- | --- |
+| 运行时提取 | 91 个 python 块 / 保留 428 条语句 / 丢弃 260 条示例代码 / **104 个端点** |
+| 导入副作用 | 1.46 秒，无网络调用 |
+| 真实端点冒烟 | **49 / 52 通过**（3 项为上游数据约束或上游自身报错，见下） |
+| 工具面自测 | **31 / 31 通过**（含联网用例） |
+| skill 发现契约 | 全部通过 |
+| 真机安装 | `dsh plugin add` 成功；bundle 已追加；`--dump-config` 组合出该行 |
+
+49/52 里未通过的 3 项，报错都由**提取出的 SKILL.md 代码自己抛出**，
+说明代码是被忠实提取并真正执行了的：
+
+| 端点 | 情况 |
+| --- | --- |
+| `bse_quote_backup` | 只提供当前快照，传入历史交易日会明确拒绝（上游设计） |
+| `sse_e_interaction` | 上游对相对时间 `昨天 18:25` 的解析未覆盖 |
+| `st_stock_list` | 快照为空时的上游自检报错（数据源侧波动） |
+
+---
+
+## 6 排障
+
+| 现象 | 处置 |
+| --- | --- |
+| 工具没出现 | 跑 `astock_probe`；`visibleAtCall` 为 0 说明装配期被注销，`skillsMount` 说明技能侧 |
+| `python_unavailable` | 装 python.org 的 3.9+；Windows 上 Microsoft Store 的 `python3.exe` 是占位程序，会弹商店。也可用 `ASTOCK_PYTHON` 指定绝对路径 |
+| 缺依赖 | `astock_env` 会给出确切的 pip 命令 |
+| 端点评 `NameError` | 生成物与 SKILL.md 不同步，跑 `python scripts/build_runtime.py` |
+| 端点报 `RuntimeError` | 多半是来源格式变了或该标的确实没有数据——错误信息里带函数名与字段名 |
+| 大表只回了一点 | 看 `meta.truncated`；调大 `limit` 或缩小查询区间 |
+
+---
+
+## 7 与上游的关系
+
+本分支只**增加** DSH 插件装配，不修改上游的数据实现：
+
+- 根 `SKILL.md` 一字未改，上游同步（`git pull`）后重新生成即可。
+- 所有端点实现都来自 SKILL.md，本仓库不维护第二份实现。
+- 上游改了端点 → `python scripts/build_runtime.py` 重新生成 → `--check` 会在 CI 里守住。

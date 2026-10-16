@@ -1,0 +1,529 @@
+{
+  "generatedBy": "scripts/build_runtime.py",
+  "skillSha256": "d30aa90edb881a45168c397a6ca1ccfebc440a8d4c93b3d94d3123d27b260a1d",
+  "softStubs": [],
+  "blocks": 91,
+  "endpointCount": 104,
+  "endpoints": {
+    "a50_futures": {
+      "name": "a50_futures",
+      "signature": "()",
+      "summary": "富时中国 A50 期指（新浪 hf_CHA50CFD，连续合约报价）— 盘前/夜盘看 A 股外资情绪。"
+    },
+    "announcements_backup": {
+      "name": "announcements_backup",
+      "signature": "(code: 'str', page_size: 'int' = 20) -> 'list'",
+      "summary": "公告备用源（巨潮被封时用）：深市走深交所官方，沪市走东财，均带 PDF 直链。"
+    },
+    "apply_adjust": {
+      "name": "apply_adjust",
+      "signature": "(bars, factors: 'list', kind: 'str' = 'qfq', price_keys=('open', 'high', 'low', 'close'))",
+      "summary": "把复权因子套到不复权 K 线上。"
+    },
+    "baidu_kline_with_ma": {
+      "name": "baidu_kline_with_ma",
+      "signature": "(code: 'str', start_time: 'str' = '') -> 'dict'",
+      "summary": "百度股市通K线 — 独有能力: 返回时自带 ma5/ma10/ma20 均价"
+    },
+    "baostock_stock_basic": {
+      "name": "baostock_stock_basic",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "标的基本信息 — ipoDate(上市日) / outDate(退市日，在市为空) / status(1=上市 0=退市)"
+    },
+    "baostock_valuation_history": {
+      "name": "baostock_valuation_history",
+      "signature": "(code: 'str', start_date: 'str', end_date: 'str') -> 'pd.DataFrame'",
+      "summary": "估值历史序列 — PE/PB/PS/PCF + 换手率 + 停牌 + ST，日频"
+    },
+    "block_trade": {
+      "name": "block_trade",
+      "signature": "(code: 'str', page_size: 'int' = 20) -> 'list[dict]'",
+      "summary": "大宗交易记录。"
+    },
+    "board_fund_flow": {
+      "name": "board_fund_flow",
+      "signature": "(board_type: 'str' = 'industry', period: 'str' = 'today', top_n: 'int' = 20) -> 'dict'",
+      "summary": "板块资金流向排名（按主力净流入降序）。"
+    },
+    "bs_session": {
+      "name": "bs_session",
+      "signature": "()",
+      "summary": "baostock 登录会话 — 必须用上下文管理器，异常路径也保证 logout"
+    },
+    "bse_quote_backup": {
+      "name": "bse_quote_backup",
+      "signature": "(trade_date, code=None)",
+      "summary": "北交所当前全板/单票快照；拒绝用当前数据回填其他交易日。"
+    },
+    "calc_peg": {
+      "name": "calc_peg",
+      "signature": "(pe: 'float', cagr: 'float') -> 'float'",
+      "summary": "PEG = 前向PE / (CAGR * 100)"
+    },
+    "cctv_news": {
+      "name": "cctv_news",
+      "signature": "(date, with_content=True)",
+      "summary": "央视《新闻联播》当日条目（央视网官方页面）— 标题 + 文字稿。"
+    },
+    "chinabond_yield_curve": {
+      "name": "chinabond_yield_curve",
+      "signature": "(start, end=None, curve='all')",
+      "summary": "中债收益率曲线（中央结算公司官方）— 国债 / 商业银行普通债 AAA / 中短期票据 AAA。"
+    },
+    "chip_distribution": {
+      "name": "chip_distribution",
+      "signature": "(df: 'pd.DataFrame', grid_size: 'int' = 300, decay: 'float' = 1.0) -> 'dict'",
+      "summary": "筹码分布 — df 需含 high/low/close/turn（turn 为百分数，0.31 表示 0.31%）"
+    },
+    "cls_telegraph": {
+      "name": "cls_telegraph",
+      "signature": "(page_size: 'int' = 50) -> 'list[dict]'",
+      "summary": "财联社电报（全市场实时快讯）。v1 API + 本地签名，零 key。"
+    },
+    "cn_today": {
+      "name": "cn_today",
+      "signature": "() -> 'str'",
+      "summary": "北京时间的今天（YYYY-MM-DD）。"
+    },
+    "cninfo_announcements": {
+      "name": "cninfo_announcements",
+      "signature": "(code: 'str', page_size: 'int' = 30) -> 'list[dict]'",
+      "summary": "巨潮公告全文检索。"
+    },
+    "cninfo_irm": {
+      "name": "cninfo_irm",
+      "signature": "(code: 'str', page_size: 'int' = 30, page_num: 'int' = 1) -> 'list[dict]'",
+      "summary": "互动易问答（巨潮，深市公司）。code: 6位代码。沪市公司实测返回 0 条，请用 §10.3 sse_e_interaction()。"
+    },
+    "convertible_bonds": {
+      "name": "convertible_bonds",
+      "signature": "(include_delisted=False)",
+      "summary": "可转债全表（东财数据中心）— 基本条款 + 最新转股价 / 债价 / 正股价 / 转股价值 / 溢价率。"
+    },
+    "daily_dragon_tiger": {
+      "name": "daily_dragon_tiger",
+      "signature": "(trade_date: 'str' = None, min_net_buy: 'float' = None) -> 'dict'",
+      "summary": "全市场龙虎榜。"
+    },
+    "dedup_articles": {
+      "name": "dedup_articles",
+      "signature": "(articles: 'list[dict]') -> 'list[dict]'",
+      "summary": "同一uid仅保留score最高的段落"
+    },
+    "dividend_history": {
+      "name": "dividend_history",
+      "signature": "(code: 'str', page_size: 'int' = 20) -> 'list[dict]'",
+      "summary": "分红送转历史。"
+    },
+    "download_pdf": {
+      "name": "download_pdf",
+      "signature": "(record: 'dict', target_dir: 'str' = './reports') -> 'Optional[str]'",
+      "summary": "下载单份研报PDF，返回保存路径或None"
+    },
+    "dragon_tiger_backup": {
+      "name": "dragon_tiger_backup",
+      "signature": "(trade_date: 'str') -> 'dict'",
+      "summary": "龙虎榜官方备用源（东财被封时用）：上交所+深交所官方，零鉴权权威一手，含营业部席位。"
+    },
+    "dragon_tiger_board": {
+      "name": "dragon_tiger_board",
+      "signature": "(code: 'str', trade_date: 'str', look_back: 'int' = 30) -> 'dict'",
+      "summary": "龙虎榜数据聚合。"
+    },
+    "earnings_forecast": {
+      "name": "earnings_forecast",
+      "signature": "(code=None, report_date=None, limit=500)",
+      "summary": "业绩预告（东财数据中心，沪深京全市场）。"
+    },
+    "eastmoney_concept_blocks": {
+      "name": "eastmoney_concept_blocks",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "个股所属板块/概念归属（东财 slist，一次请求拿全，已内置限流）。"
+    },
+    "eastmoney_datacenter": {
+      "name": "eastmoney_datacenter",
+      "signature": "(report_name: 'str', columns: 'str' = 'ALL', filter_str: 'str' = '', page_size: 'int' = 50, sort_columns: 'str' = '', sort_types: 'str' = '-1') -> 'list[dict]'",
+      "summary": "东财数据中心统一查询 — 龙虎榜/解禁/融资融券/大宗交易/股东户数/分红 共用（已内置限流）"
+    },
+    "eastmoney_fund_flow_minute": {
+      "name": "eastmoney_fund_flow_minute",
+      "signature": "(code: 'str') -> 'list[dict]'",
+      "summary": "个股资金流向（分钟级，当日盘中）。"
+    },
+    "eastmoney_global_news": {
+      "name": "eastmoney_global_news",
+      "signature": "(page_size: 'int' = 50) -> 'list[dict]'",
+      "summary": "东方财富全球财经资讯（7x24 滚动）。"
+    },
+    "eastmoney_industry_reports": {
+      "name": "eastmoney_industry_reports",
+      "signature": "(industry_code: 'str' = '*', max_pages: 'int' = 5, begin: 'str' = '') -> 'list[dict]'",
+      "summary": "拉取行业研报列表（qType=1）。"
+    },
+    "eastmoney_reports": {
+      "name": "eastmoney_reports",
+      "signature": "(code: 'str', max_pages: 'int' = 5) -> 'list[dict]'",
+      "summary": "拉取指定股票的研报列表。"
+    },
+    "eastmoney_stock_info": {
+      "name": "eastmoney_stock_info",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "东财个股基本面信息。"
+    },
+    "eastmoney_stock_news": {
+      "name": "eastmoney_stock_news",
+      "signature": "(code: 'str', page_size: 'int' = 20) -> 'list[dict]'",
+      "summary": "东财个股新闻（JSONP 接口）。"
+    },
+    "em_dt_pool": {
+      "name": "em_dt_pool",
+      "signature": "(date: 'str') -> 'list[dict]'",
+      "summary": "跌停池。返回 code/name/price/pct/turnover/pe/seal_fund(封单资金)/last_seal/"
+    },
+    "em_get": {
+      "name": "em_get",
+      "signature": "(url: 'str', params: 'Optional[dict]' = None, headers: 'Optional[dict]' = None, timeout: 'int' = 15, **kwargs)",
+      "summary": "东财统一请求入口：自动节流 + 复用 session + 默认 UA。"
+    },
+    "em_hot_concept": {
+      "name": "em_hot_concept",
+      "signature": "(code: 'str') -> 'list[dict]'",
+      "summary": "东财个股热门概念命中（这只票当下被市场归到哪些概念在炒）。"
+    },
+    "em_hot_rank": {
+      "name": "em_hot_rank",
+      "signature": "(top: 'int' = 50) -> 'list[dict]'",
+      "summary": "东财人气榜（排名 + 排名变化 + 名称/价格）。返回 rank/code/name/price/pct/rank_chg。"
+    },
+    "em_market_code": {
+      "name": "em_market_code",
+      "signature": "(code: 'str') -> 'int'",
+      "summary": "东财 secid 的市场号：**沪=1，深/北=0**（V3.7.0 新增 · #46）。"
+    },
+    "em_price_anomaly": {
+      "name": "em_price_anomaly",
+      "signature": "(page_size: 'int' = 200, page_no: 'int' = 1) -> 'dict'",
+      "summary": "日内异动明细（price-anomaly/list）。返回 {date, items:[...]}"
+    },
+    "em_price_anomaly_count": {
+      "name": "em_price_anomaly_count",
+      "signature": "(page_size: 'int' = 50, page_no: 'int' = 1, sort_key: 'str' = '', sort_dir: 'str' = '') -> 'dict'",
+      "summary": "异动统计（price-anomaly/count）：按标的聚合的异动次数 + 现价。"
+    },
+    "em_secid": {
+      "name": "em_secid",
+      "signature": "(code: 'str') -> 'str'",
+      "summary": "东财 push2/push2his 的 secid，如 `1.600519` / `0.300750`。"
+    },
+    "em_stock_monitor": {
+      "name": "em_stock_monitor",
+      "signature": "(only_active: 'bool' = True) -> 'list[dict]'",
+      "summary": "东财重点监控池。"
+    },
+    "em_yzt_pool": {
+      "name": "em_yzt_pool",
+      "signature": "(date: 'str') -> 'list[dict]'",
+      "summary": "昨日涨停池（昨涨停今表现，算晋级率/赚钱效应）。返回 code/name/price/"
+    },
+    "em_zb_pool": {
+      "name": "em_zb_pool",
+      "signature": "(date: 'str') -> 'list[dict]'",
+      "summary": "炸板池（涨停后开板）。返回 code/name/price/limit_price(涨停价)/pct/turnover/"
+    },
+    "em_zt_pool": {
+      "name": "em_zt_pool",
+      "signature": "(date: 'str') -> 'list[dict]'",
+      "summary": "涨停池。date=YYYYMMDD（交易日）。"
+    },
+    "equity_pledge": {
+      "name": "equity_pledge",
+      "signature": "(code=None, date=None, limit=5000)",
+      "summary": "股权质押比例（中国结算每周统计，经东财数据中心）。"
+    },
+    "etf_shares": {
+      "name": "etf_shares",
+      "signature": "(date, exchange='SH')",
+      "summary": "ETF 份额（万份）— 上交所按日归档，深交所只有当前快照。"
+    },
+    "forward_pe": {
+      "name": "forward_pe",
+      "signature": "(price: 'float', eps_forecast: 'float') -> 'float'",
+      "summary": "前向PE = 当前股价 / 未来年度一致预期EPS"
+    },
+    "full_valuation": {
+      "name": "full_valuation",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "单票完整估值分析"
+    },
+    "fund_flow_backup": {
+      "name": "fund_flow_backup",
+      "signature": "(code: 'str', days: 'int' = 60) -> 'list'",
+      "summary": "个股资金流备用源（东财被封时用）：新浪，日度四档单净额。"
+    },
+    "futures_daily": {
+      "name": "futures_daily",
+      "signature": "(date, exchange)",
+      "summary": "期货日行情（交易所官方收盘数据）— 上期所 / 上期能源 / 郑商所 / 中金所 / 广期所。"
+    },
+    "futures_kline": {
+      "name": "futures_kline",
+      "signature": "(symbol, start=None, end=None)",
+      "summary": "国内期货日 K 线（新浪）— 单个合约或主力连续的逐日序列，覆盖全部六家交易所（含大商所）。"
+    },
+    "futures_position_rank": {
+      "name": "futures_position_rank",
+      "signature": "(date, exchange, symbol=None)",
+      "summary": "期货会员成交量 / 持买单 / 持卖单前 20 名（交易所官方持仓排名）。"
+    },
+    "futures_realtime": {
+      "name": "futures_realtime",
+      "signature": "(symbols)",
+      "summary": "国内期货实时行情（新浪）— 覆盖全部六家交易所，大商所品种只能走这里。"
+    },
+    "get_prefix": {
+      "name": "get_prefix",
+      "signature": "(code: 'str') -> 'str'",
+      "summary": "6位代码 → 市场前缀（sh/sz/bj）。支持显式前缀/后缀（sh000016 / 000016.SH）透传以解决歧义。"
+    },
+    "holder_num_change": {
+      "name": "holder_num_change",
+      "signature": "(code: 'str', page_size: 'int' = 10) -> 'list[dict]'",
+      "summary": "股东户数变化（季度级）。"
+    },
+    "holder_trades": {
+      "name": "holder_trades",
+      "signature": "(code=None, direction=None, start=None, end=None, limit=500)",
+      "summary": "股东增减持（东财数据中心，重要股东二级市场 / 大宗交易等变动公告）。"
+    },
+    "hsgt_realtime": {
+      "name": "hsgt_realtime",
+      "signature": "() -> 'pd.DataFrame'",
+      "summary": "沪深股通当日实时分钟流向（含集合竞价 09:10–15:00，262 个时间点）。"
+    },
+    "index_constituents": {
+      "name": "index_constituents",
+      "signature": "(index_code, provider='csi')",
+      "summary": "最近公布的沪深北成分；date 是源文件日期，不是抓取日。"
+    },
+    "index_valuation": {
+      "name": "index_valuation",
+      "signature": "(index_code)",
+      "summary": "中证近期 PE/股息率文件；不含 PB，两种股本口径不混用。"
+    },
+    "index_weights": {
+      "name": "index_weights",
+      "signature": "(index_code, provider='csi')",
+      "summary": "最近公布的指数权重，weight_percent 单位为百分数。"
+    },
+    "industry_comparison": {
+      "name": "industry_comparison",
+      "signature": "(top_n: 'int' = 20) -> 'dict'",
+      "summary": "全行业涨跌幅排名（东财行业板块，~100 个行业）。"
+    },
+    "institution_survey": {
+      "name": "institution_survey",
+      "signature": "(code=None, start=None, end=None, detail=False, limit=500)",
+      "summary": "机构调研（东财数据中心，汇总自上市公司投资者关系活动记录表）。"
+    },
+    "ipo_calendar": {
+      "name": "ipo_calendar",
+      "signature": "(limit=100)",
+      "summary": "新股申购日历（东财数据中心，沪深京）— 按申购日倒序，包含尚未申购的排期。"
+    },
+    "iwencai_query": {
+      "name": "iwencai_query",
+      "signature": "(query: 'str', page: 'int' = 1, limit: 'int' = 50) -> 'list[dict]'",
+      "summary": "iwencai NL数据查询（结构化字段）。"
+    },
+    "iwencai_search": {
+      "name": "iwencai_search",
+      "signature": "(query: 'str', channel: 'str' = 'report', size: 'int' = 50) -> 'list[dict]'",
+      "summary": "iwencai 语义搜索。"
+    },
+    "limit_up_sentiment": {
+      "name": "limit_up_sentiment",
+      "signature": "(date: 'str') -> 'dict'",
+      "summary": "打板情绪温度计：连板梯队 + 炸板率 + 涨跌停对比。"
+    },
+    "lockup_expiry": {
+      "name": "lockup_expiry",
+      "signature": "(code: 'str', trade_date: 'str', forward_days: 'int' = 90) -> 'dict'",
+      "summary": "限售解禁日历。"
+    },
+    "lpr_history": {
+      "name": "lpr_history",
+      "signature": "()",
+      "summary": "贷款市场报价利率 LPR 全历史。单位 %。"
+    },
+    "macro_calendar": {
+      "name": "macro_calendar",
+      "signature": "(start, end=None, country=None, min_importance=1)",
+      "summary": "全球宏观日历（华尔街见闻）— 经济数据公布值/预期/前值 + 重要事件。"
+    },
+    "margin_trading": {
+      "name": "margin_trading",
+      "signature": "(code: 'str', page_size: 'int' = 30) -> 'list[dict]'",
+      "summary": "融资融券明细（日级）。"
+    },
+    "margin_trading_backup": {
+      "name": "margin_trading_backup",
+      "signature": "(trade_date, exchange, code=None)",
+      "summary": "一次只取一个交易所。未发布抛错；完整源中筛不到 code 才返回空表。"
+    },
+    "nbs_pmi": {
+      "name": "nbs_pmi",
+      "signature": "() -> 'dict'",
+      "summary": "国家统计局最新 PMI — 制造业 / 非制造业商务活动 / 综合产出 + 大中小型企业"
+    },
+    "norm_ticker": {
+      "name": "norm_ticker",
+      "signature": "(code: 'str', stock_only: 'bool' = False) -> 'str'",
+      "summary": "任意受支持写法 → 纯 6 位数字代码。"
+    },
+    "options_daily": {
+      "name": "options_daily",
+      "signature": "(date, exchange)",
+      "summary": "商品期权 / 股指期权日行情（交易所官方）— 上期所 / 上期能源 / 郑商所 / 中金所 / 广期所。"
+    },
+    "pboc_social_financing": {
+      "name": "pboc_social_financing",
+      "signature": "(year: 'Optional[int]' = None) -> 'pd.DataFrame'",
+      "summary": "人民银行「社会融资规模增量统计表」— 月度，单位亿元；year=None 取最新年"
+    },
+    "pe_digestion": {
+      "name": "pe_digestion",
+      "signature": "(current_pe: 'float', cagr: 'float', target_pe: 'float' = 30) -> 'float'",
+      "summary": "当前PE消化到目标PE需要多少年。"
+    },
+    "repo_fixing_rates": {
+      "name": "repo_fixing_rates",
+      "signature": "(kind='FR')",
+      "summary": "银行间回购定盘利率（中国货币网 / 外汇交易中心官方）。"
+    },
+    "sge_spot": {
+      "name": "sge_spot",
+      "signature": "(instrument='Au99.99')",
+      "summary": "上海黄金交易所现货日线（官方）— 2016-12 至今。"
+    },
+    "share_buyback": {
+      "name": "share_buyback",
+      "signature": "(code=None, progress=None, limit=500)",
+      "summary": "股票回购（东财数据中心）— 回购方案与实施进度，一个方案一行、按最新公告日倒序。"
+    },
+    "sina_adjust_factor": {
+      "name": "sina_adjust_factor",
+      "signature": "(code: 'str', kind: 'str' = 'qfq') -> 'list'",
+      "summary": "新浪复权因子序列 — kind='qfq'(前复权) | 'hfq'(后复权)，按日期倒序（最新在前）"
+    },
+    "sina_financial_report": {
+      "name": "sina_financial_report",
+      "signature": "(code: 'str', report_type: 'str' = 'lrb', num: 'int' = 8) -> 'list[dict]'",
+      "summary": "新浪财报三表。"
+    },
+    "sina_option_codes": {
+      "name": "sina_option_codes",
+      "signature": "(underlying: 'str' = '510050', call: 'bool' = True) -> 'dict'",
+      "summary": "ETF期权合约清单。underlying: 510050/510300/588000/510500。call=True认购/False认沽。"
+    },
+    "sina_option_greeks": {
+      "name": "sina_option_greeks",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "期权希腊字母 + 隐含波动率。返回 name/volume/delta/gamma/theta/vega/"
+    },
+    "sina_option_tquote": {
+      "name": "sina_option_tquote",
+      "signature": "(code: 'str') -> 'dict'",
+      "summary": "期权T型报价。返回 bid_vol/bid/last/ask/ask_vol/open_interest(持仓量)/pct/"
+    },
+    "sina_research_reports": {
+      "name": "sina_research_reports",
+      "signature": "(code=None, page=1)",
+      "summary": "新浪研报列表 — 研报标题/类型/日期/机构/研究员（#53 的第二来源）。"
+    },
+    "sse_e_interaction": {
+      "name": "sse_e_interaction",
+      "signature": "(code=None, kind='answered', page=1, page_size=10)",
+      "summary": "上证e互动 — 投资者提问与沪市上市公司回复（上交所官方平台）。"
+    },
+    "st_stock_list": {
+      "name": "st_stock_list",
+      "signature": "()",
+      "summary": "全市场 ST / *ST 名单（风险警示）— 当日快照。"
+    },
+    "stock_fund_flow_120d": {
+      "name": "stock_fund_flow_120d",
+      "signature": "(code: 'str') -> 'list[dict]'",
+      "summary": "个股资金流（日级，最近120个交易日）。"
+    },
+    "sw_industry_as_of": {
+      "name": "sw_industry_as_of",
+      "signature": "(df: 'pd.DataFrame', code: 'str', as_of: 'str') -> 'Optional[dict]'",
+      "summary": "某只股票在 as_of 日所属的申万行业（取不晚于该日的最后一次调整）"
+    },
+    "sw_industry_history": {
+      "name": "sw_industry_history",
+      "signature": "() -> 'pd.DataFrame'",
+      "summary": "申万行业归属变迁史 — 每只股票每次行业调整一行"
+    },
+    "tdx_client": {
+      "name": "tdx_client",
+      "signature": "(market='std', check='bars')",
+      "summary": "创建 mootdx 客户端，规避 0.11.x BESTIP.HQ 空串 bug + 坏服务器静默空表（#43）。"
+    },
+    "tdx_daily_package": {
+      "name": "tdx_daily_package",
+      "signature": "(date)",
+      "summary": "通达信官网每日盘后包 — 某一交易日沪深北全部证券的日线（含成交额）。"
+    },
+    "tencent_kline": {
+      "name": "tencent_kline",
+      "signature": "(code, period='day', adjust=None, start=None, end=None, count=320)",
+      "summary": "腾讯 K 线 — 日/周/月（默认前复权）与 1/5/15/30/60 分钟（不复权）。"
+    },
+    "tencent_quote": {
+      "name": "tencent_quote",
+      "signature": "(codes: 'list[str]') -> 'dict[str, dict]'",
+      "summary": "批量拉取腾讯财经实时行情。"
+    },
+    "tencent_ticks": {
+      "name": "tencent_ticks",
+      "signature": "(code)",
+      "summary": "腾讯逐笔成交（分笔）— 最近一个交易日的全部成交明细，沪深个股与 ETF。"
+    },
+    "ths_eps_forecast": {
+      "name": "ths_eps_forecast",
+      "signature": "(code: 'str') -> 'pd.DataFrame'",
+      "summary": "同花顺机构一致预期EPS。"
+    },
+    "ths_hot_list": {
+      "name": "ths_hot_list",
+      "signature": "(period: 'str' = 'hour') -> 'list[dict]'",
+      "summary": "同花顺热榜（单接口拿名称+人气+概念标签+排名变化）。period: hour/day。"
+    },
+    "ths_hot_reason": {
+      "name": "ths_hot_reason",
+      "signature": "(date: 'str' = None) -> 'pd.DataFrame'",
+      "summary": "同花顺当日强势股归因。"
+    },
+    "ths_limit_up_pool": {
+      "name": "ths_limit_up_pool",
+      "signature": "(date: 'str') -> 'list[dict]'",
+      "summary": "同花顺涨停揭秘（涨停原因 + 封板质量增强源）。date=YYYYMMDD。"
+    },
+    "to_joinquant": {
+      "name": "to_joinquant",
+      "signature": "(code: 'str') -> 'str'",
+      "summary": "任意受支持写法 → 聚宽代码，如 `600519.XSHG` / `000001.XSHE`（#55）。"
+    },
+    "trading_calendar": {
+      "name": "trading_calendar",
+      "signature": "(year, month)",
+      "summary": "深交所完整自然月日历。未发布或缺日抛错，周末调休不视为交易日。"
+    },
+    "wallstreetcn_lives": {
+      "name": "wallstreetcn_lives",
+      "signature": "(channel='global-channel', limit=50, cursor=None)",
+      "summary": "华尔街见闻 7×24 快讯（新闻层第三来源，与 §5.2 财联社 / §5.3 东财互备）。"
+    }
+  }
+}

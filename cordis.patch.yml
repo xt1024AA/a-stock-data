@@ -1,0 +1,13 @@
+# dsh-a-stock-data —— DSH 插件装配层
+#
+# 这个文件声明「本包是一个 bundle」以及它往 profile 组合树里插哪一行。
+# `dsh plugin --profile <名字> add <本包路径>` 会自动读它并写进 profile；
+# 不需要手动编辑 profile 的 cordis.yml（那个文件不是编辑点）或 cordis.patch.yml。
+# `dsh plugin remove` 时会自动摘掉这一行。
+#
+# 依据：DSH 的 host-plugin 约定 —— 声明了 dsh.bundle.patch 的包才会被当作 profile 组合层，
+# 否则只作为普通依赖安装（并打一条 warning）。id 与 name 都取包名，便于与其它插件对齐。
+- insert:
+    - id: dsh-a-stock-data
+      name: 'dsh-a-stock-data'
+      config: {}

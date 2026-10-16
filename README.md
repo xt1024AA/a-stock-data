@@ -138,6 +138,35 @@ pip install mootdx requests pandas stockstats numpy baostock xlrd openpyxl
 
 > **Codex / OpenClaw 用户：** 把 SKILL.md 的内容贴入你的系统 prompt 或项目上下文文件即可，内嵌的 Python 代码可直接执行。
 
+### DeepSeek Harness（DSH）用户
+
+本仓库同时是一个 DSH 插件（`a-stock-data-DSH` 分支）：**同一个 SKILL.md** 既作为
+随包技能（rank 600）交付，其内嵌的 Python 端点也被提取成一个可 import 的运行时，
+经 `astock_*` 工具直接调用——不用再把文档里的代码块抄一遍。
+
+```bash
+# 1. 装 Python 依赖（mootdx 请勿装：它要求 httpx<0.26，会破坏宿主里的 litellm/mcp）
+pip install requests pandas numpy stockstats baostock xlrd openpyxl
+
+# 2. 装插件（<profile> 换成你的 profile 名；desktop profile 装完需重启 DSH）
+dsh plugin --profile <profile> add <本仓库路径>
+```
+
+装完的工具面（全部只读）：
+
+| 工具 | 作用 |
+| --- | --- |
+| `astock_probe` | 装机探针：版本 / 随包技能挂载 / 解释器 / 工具面在册数 |
+| `astock_env` | 环境体检：缺哪个依赖就给哪条 pip 命令 |
+| `astock_endpoints` | 检索 104 个端点的名称、签名与说明（不联网） |
+| `astock_call` | 调用端点取数，如 `{"endpoint": "tencent_kline", "args": {"code": "600519", "count": 60}}` |
+
+根目录 `SKILL.md` 未做任何改动，Claude Code / Codex 等宿主照旧可用；
+运行时是从 SKILL.md **生成**的派生物，不维护第二份实现。
+实测：104 个端点可用，52 项真实端点冒烟 49 项通过，工具面自测 31/31。
+
+详见 [docs/dsh-plugin.md](docs/dsh-plugin.md)。
+
 ---
 
 ## 87 个端点能力清单

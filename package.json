@@ -1,0 +1,43 @@
+{
+  "name": "dsh-a-stock-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A 股全栈数据 DSH 插件：把 a-stock-data 这个 432KB / 87 端点的 Skill 装成 DSH 可发现的随包技能，并把 SKILL.md 里内嵌的 Python 端点实现在构建期提取成可 import 的运行时，经 astock_* 工具直接调用。",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "skills",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build:runtime": "python scripts/build_runtime.py",
+    "check:parity": "python scripts/build_runtime.py --check",
+    "test:tools": "node scripts/test-tools.mjs"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "a-stock",
+    "stock-data",
+    "quant"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

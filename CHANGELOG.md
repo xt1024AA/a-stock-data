@@ -1,5 +1,53 @@
 # Changelog
 
+## a-stock-data-DSH — 2026-10-17
+
+不改变 SKILL.md、不改变任何一个端点的实现：新增 **DeepSeek Harness（DSH）插件**形态。
+
+原本的用法是模型读 SKILL.md、把里面的代码块抄进终端执行。抄写会漏辅助函数、每次重写、
+随文档漂移，于是这一版把同一份 SKILL.md **同时**当作随包技能与端点实现的来源。
+
+### 新增
+
+**DSH 插件装配（根目录）**
+
+- `package.json` 声明 `dsh.bundle.patch`，`cordis.patch.yml` 往 profile 组合树里插一行。
+- `lib/index.js` 注册 4 个只读工具，并用官方 `@deepseek-ai/dsh-skill-filesystem` 提供方
+  按 rank 600 挂载随包技能（`includeDefaultRoots: false`）。
+- `skills/a-stock-data/SKILL.md` 由根 SKILL.md 同步，frontmatter 归一为 DSH 认得的形态
+  （自定义的 `origin` / `version` 收进 `metadata`，避免被当未知键整条丢弃）。
+
+**工具面（`astock_*`，全部只读）**
+
+| 工具 | 联网 | 作用 |
+| --- | --- | --- |
+| `astock_probe` | 否 | 装机事实：版本、随包技能挂载、解释器、工具面此刻在册几个 |
+| `astock_env` | 否 | 环境体检：解释器 + 依赖 + 运行时指纹 |
+| `astock_endpoints` | 否 | 检索 104 个端点的名称、签名与说明 |
+| `astock_call` | 是 | 调用端点取数 |
+
+**运行时生成器 `scripts/build_runtime.py`**
+
+SKILL.md 仍是唯一事实来源；运行时是派生物，由生成器产出、由 `--check` 守护同步。
+生成规则是**前向数据流**（从 builtins + 已见 import 出发，逐条判断「执行时要用到的名字此刻是否已绑好」），
+外加「模块级语句不得调用 SKILL.md 自己定义的函数」。91 个 python 块里保留 428 条语句、
+丢弃 260 条用法示例，得到 104 个可调用端点。
+
+**软依赖策略**
+
+`mootdx` 刻意当可选：它要求 `httpx<0.26`，而宿主里的 `litellm` / `mcp` 需要 `httpx>=0.27`，
+装上会互相破坏。缺失时运行时给 `mootdx` / `baostock` / `stockstats` 装 stub，
+相关端点明确报错，而不是静默返回空。
+
+### 验证
+
+- `python scripts/build_runtime.py --check` — 生成物与 SKILL.md 同步
+- `python scripts/check_skill_contract.py` — 随包 SKILL.md 满足 DSH 的发现契约
+- `node scripts/test-tools.mjs [--live]` — 工具面自测，用假 ctx 如实复刻 Cordis 的
+  `effect` / `register` 语义（能抓出「注册后被自己的 disposer 立刻注销」这类事故）
+- 真实端点冒烟 52 项通过 49 项；工具面自测 31/31（含联网）
+- 真机 `dsh plugin add` 成功，bundle 已追加，`--dump-config` 组合出该行
+
 ## v3.10.2 — 2026-10-11
 
 十五层、87 个入口、34 个来源都不变。只修 `full_valuation()` 的 PE 消化年数。
