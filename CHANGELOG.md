@@ -39,14 +39,41 @@ SKILL.md 仍是唯一事实来源；运行时是派生物，由生成器产出�
 装上会互相破坏。缺失时运行时给 `mootdx` / `baostock` / `stockstats` 装 stub，
 相关端点明确报错，而不是静默返回空。
 
+### 修复
+
+**`astock_probe` 的返回值含 `undefined`，被宿主的「无损 JSON」校验拒收（v0.1.1）**
+
+装好后第一次调用探针，宿主回的是：
+
+```
+Error: tool "astock_probe" returned invalid output: value is not lossless JSON
+```
+
+返回里塞了两个 `undefined`：探测成功时 `python.note` 这个键不存在、调用方没传 `echo` 时
+`args.echo` 是 `undefined`。`JSON.stringify` 会把它们静默丢掉，**所以本地自测看不出来**，
+只有宿主那一侧的校验能抓。规矩改成：可选字段要么落成确定值（`?? null`），要么整个键不出现
+（`echo` 声明成 string，放 `null` 会与 schema 的类型冲突）。
+
+顺手排查了同类：`astock_call` 的 `result` 也可能 `undefined`（已加 `?? null`）；
+`astock_env` / `astock_endpoints` 无此问题。
+
+自测里补了一条**无损 JSON 检查**：每次工具调用都递归扫返回值，遇到
+`undefined` / 函数 / Symbol / NaN / Infinity / BigInt / 循环引用就失败并指出路径——
+把宿主的契约搬进本地，同类问题不再只能靠真机发现。
+
+> 改已加载的 JS 模块**必须重启 DSH 才生效**（运行中进程缓存模块，HMR 只热加新条目、
+> 不热换已有模块）。所以版本号提到 0.1.1：重启后 `astock_probe` 报 v0.1.1 才算加载到了新代码。
+
 ### 验证
 
 - `python scripts/build_runtime.py --check` — 生成物与 SKILL.md 同步
 - `python scripts/check_skill_contract.py` — 随包 SKILL.md 满足 DSH 的发现契约
 - `node scripts/test-tools.mjs [--live]` — 工具面自测，用假 ctx 如实复刻 Cordis 的
-  `effect` / `register` 语义（能抓出「注册后被自己的 disposer 立刻注销」这类事故）
-- 真实端点冒烟 52 项通过 49 项；工具面自测 31/31（含联网）
-- 真机 `dsh plugin add` 成功，bundle 已追加，`--dump-config` 组合出该行
+  `effect` / `register` 语义（能抓出「注册后被自己的 disposer 立刻注销」这类事故），
+  并对每次调用做无损 JSON 检查
+- 真实端点冒烟 52 项通过 49 项；工具面自测 34/34（含联网）
+- 真机 `dsh plugin add` 成功，bundle 已追加；HMR 热加载后 4 个工具在运行中的宿主里注册成功
+  （由 live Inspect 的 Tool 提供方读出），`astock_env` 在真机上跑通
 
 ## v3.10.2 — 2026-10-11
 

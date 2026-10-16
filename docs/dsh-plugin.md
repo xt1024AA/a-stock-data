@@ -169,7 +169,7 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 | 运行时提取 | 91 个 python 块 / 保留 428 条语句 / 丢弃 260 条示例代码 / **104 个端点** |
 | 导入副作用 | 1.46 秒，无网络调用 |
 | 真实端点冒烟 | **49 / 52 通过**（3 项为上游数据约束或上游自身报错，见下） |
-| 工具面自测 | **31 / 31 通过**（含联网用例） |
+| 工具面自测 | **34 / 34 通过**（含联网用例） |
 | skill 发现契约 | 全部通过 |
 | 真机安装 | `dsh plugin add` 成功；bundle 已追加；`--dump-config` 组合出该行 |
 
@@ -189,6 +189,7 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 | 现象 | 处置 |
 | --- | --- |
 | 工具没出现 | 跑 `astock_probe`；`visibleAtCall` 为 0 说明装配期被注销，`skillsMount` 说明技能侧 |
+| 工具报 `value is not lossless JSON` | 返回值里有 `undefined`（`JSON.stringify` 会静默丢掉，本地看不出）。v0.1.1 已修；**改过 `lib/` 后必须重启 DSH** 才生效——运行中的进程缓存已加载的 JS 模块，HMR 只热加新条目、不热换已有模块。重启后 `astock_probe` 报的版本号可用于确认 |
 | `python_unavailable` | 装 python.org 的 3.9+；Windows 上 Microsoft Store 的 `python3.exe` 是占位程序，会弹商店。也可用 `ASTOCK_PYTHON` 指定绝对路径 |
 | 缺依赖 | `astock_env` 会给出确切的 pip 命令 |
 | 端点评 `NameError` | 生成物与 SKILL.md 不同步，跑 `python scripts/build_runtime.py` |

@@ -78,7 +78,51 @@ function makeCtx() {
 async function callTool(tools, toolName, args) {
   const def = tools.get(toolName);
   if (!def) throw new Error(`工具 ${toolName} 不在工具面上`);
-  return def.execute(args ?? {});
+  const value = await def.execute(args ?? {});
+  const lossy = findLossyPath(value);
+  if (lossy) {
+    throw new Error(`${toolName} 的返回值里有不能无损 JSON 化的值：${lossy}`);
+  }
+  return value;
+}
+
+/**
+ * 找一个会让「无损 JSON」校验失败的值，返回它的路径；干净就返回 null。
+ *
+ * 为什么必须有这条：宿主对工具结果的要求是**无损 JSON**，而 `JSON.stringify`
+ * 会把 `undefined`、函数、Symbol 静默丢掉，把 NaN/Infinity 变成 null——
+ * 于是「本地看着好好的、宿主直接拒收」，报错还是一句没头没尾的
+ * `value is not lossless JSON`。astock_probe 真机上就这么翻过车：
+ * 探测成功时 `note` 不存在、调用方没传 `echo`，两个 `undefined` 一起把结果判死。
+ *
+ * 这条检查把宿主的契约搬进自测，让同类问题在本地就暴露。
+ */
+function findLossyPath(value, path = "$", seen = new Set()) {
+  if (value === undefined) return `${path} 是 undefined`;
+  if (typeof value === "function") return `${path} 是函数`;
+  if (typeof value === "symbol") return `${path} 是 Symbol`;
+  if (typeof value === "number" && !Number.isFinite(value)) return `${path} 是 ${value}`;
+  if (typeof value === "bigint") return `${path} 是 BigInt`;
+  if (value === null || typeof value !== "object") return null;
+
+  if (seen.has(value)) return `${path} 循环引用`;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i += 1) {
+        const hit = findLossyPath(value[i], `${path}[${i}]`, seen);
+        if (hit) return hit;
+      }
+      return null;
+    }
+    for (const [k, v] of Object.entries(value)) {
+      const hit = findLossyPath(v, `${path}.${k}`, seen);
+      if (hit) return hit;
+    }
+    return null;
+  } finally {
+    seen.delete(value);
+  }
 }
 
 /** effect 清理函数确实能被调用（且调用后工具真的消失）——验证 disposer 是真的。 */
@@ -115,6 +159,17 @@ async function main() {
   check("探针没有装配失败", probe0.toolSurface.failures.length === 0,
     JSON.stringify(probe0.toolSurface.failures));
   check("探针带回了 echo", (await callTool(env.tools, "astock_probe", { echo: "ping" })).echo === "ping");
+
+  // 宿主的硬要求：工具结果必须是无损 JSON。callTool 已经对每次调用做了检查，
+  // 这里再把 probe 的两个具体翻车点钉死（真机上报的是 "value is not lossless JSON"）。
+  check("探针不传 echo 时不出现 echo 键（不是 undefined）",
+    !("echo" in probe0), Object.keys(probe0).join(","));
+  check("探针 python.note 是确定值（null 或字符串，不能 undefined）",
+    probe0.python.note === null || typeof probe0.python.note === "string",
+    String(probe0.python.note));
+  check("探针 python.ok 不在时字段落成 null 而不是 undefined",
+    ["bin", "prefixArgs", "version", "executable", "note"].every((k) => k in probe0.python),
+    Object.keys(probe0.python).join(","));
 
   console.log("\n=== 3. 随包技能与路径 ===");
   check("attempted 了随包技能挂载", probe0.skillsMount.attempted === true);
