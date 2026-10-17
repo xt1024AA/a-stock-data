@@ -172,6 +172,7 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 | 工具面自测 | **34 / 34 通过**（含联网用例） |
 | skill 发现契约 | 全部通过 |
 | 真机安装 | `dsh plugin add` 成功；bundle 已追加；`--dump-config` 组合出该行 |
+| 真机运行 | 重启后 `astock_probe` 报 v0.1.1、**随包技能已挂载**（提供方 `astock-bundled`，根目录 `skills/`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4；`astock_call` 取到茅台与平安银行的真实行情 |
 
 49/52 里未通过的 3 项，报错都由**提取出的 SKILL.md 代码自己抛出**，
 说明代码是被忠实提取并真正执行了的：

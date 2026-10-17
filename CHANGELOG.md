@@ -74,6 +74,9 @@ Error: tool "astock_probe" returned invalid output: value is not lossless JSON
 - 真实端点冒烟 52 项通过 49 项；工具面自测 34/34（含联网）
 - 真机 `dsh plugin add` 成功，bundle 已追加；HMR 热加载后 4 个工具在运行中的宿主里注册成功
   （由 live Inspect 的 Tool 提供方读出），`astock_env` 在真机上跑通
+- 重启 DSH 后 `astock_probe` 在真机确认：版本 v0.1.1、**随包技能已挂载**
+  （提供方 `astock-bundled`，根目录 `skills/`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4；
+  `astock_call` 取到茅台与平安银行真实行情
 
 ## v3.10.2 — 2026-10-11
 
