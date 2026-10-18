@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 reports/
+
+# 本地 agent 协作脚手架（setup-matt-pocock-skills 产物），不入库
+AGENTS.md
+docs/agents/
