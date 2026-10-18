@@ -1,5 +1,65 @@
 # Changelog
 
+## a-stock-data-DSH — 2026-10-18（v0.1.2）
+
+适配 DSH 运行时 **0.2.1-rc.2**。这一版修的是一个**整插件静默消失**的问题，
+不是功能增强。
+
+### 修了什么
+
+**1. 插件行根本没进组合树（根因：版本声明写成了精确版本）**
+
+`package.json` 原来写：
+
+```json
+"peerDependencies": { "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2" }
+```
+
+DSH 的 bundle 版本检查拿运行时 `0.2.1-rc.2` 去比对这个**精确**版本，判为不兼容，
+于是本 bundle 的整排 `insert` 行被跳过 —— `Config.listConfigs` 231 条里没有它，
+工具面 119 个工具里没有一个 `astock_*`，而 `package.json` 的 `dsh.profile.bundles`
+里明明列着它。同一 profile 的 `@linfengqaqtat/dsh-scriptor` 就是这样被跳过的：
+
+```
+"error": { "code": "incompatible-version",
+           "requirements": { "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2" } },
+"rows": []
+```
+
+改法是跟能正常装载的同类插件对齐（`dsh-mattpocock-skills-deck` 用
+`engines.dsh`、`dsh-oh-story-claudecode` 用 `^0.2.0-rc.2`）：去掉精确 peer，
+改 `engines.dsh: ">=0.2.1-rc.2"`。
+
+**2. 技能挂载换成 `ctx.get("skills").registerProvider()`**
+
+原来用 `await import("@deepseek-ai/dsh-skill-filesystem")`。那个包是**宿主的**依赖，
+只存在于宿主自己的解析树（桌面版在 `app.asar` 内）；从插件目录恒为
+`ERR_MODULE_NOT_FOUND` —— 实测连宿主的 `@deepseek-ai/dsh-tools` 在插件目录里也一样
+解析不到，所以这不是版本问题，是结构性问题。
+
+现在自己实现 provider（`list` / `get`），字段按宿主 `SkillProvider` 契约给全
+（`locator` / `resourceBase` / `rank` / `source` / `provider`）。这也是
+`dsh-mattpocock-skills-deck` 挂上 27 个技能所用的形态。
+
+### 测试为什么之前是假绿
+
+`test:tools` 第 3 节的断言原来是：
+
+```js
+skillsMount.ok === true || String(skillsMount.detail).length > 0   // 失败也算过
+```
+
+于是「技能压根没挂上」这条路径一直是绿的。本版改为硬断言 `ok === true`，
+并补了 10 条 provider 契约回归（`locator` 齐备、名字与目录名一致、
+`get` 能读回正文、对缺失文件返回 `undefined` 而不抛错）。30 → 40 条。
+
+### 版本
+
+- `package.json` / `lib/index.js`：`0.1.1` → `0.1.2`
+- `DSH_RUNTIME_EXPECTED`：`0.2.0-rc.2` → `>=0.2.1-rc.2`（下限，不是精确匹配）
+
+---
+
 ## a-stock-data-DSH — 2026-10-17
 
 不改变 SKILL.md、不改变任何一个端点的实现：新增 **DeepSeek Harness（DSH）插件**形态。
@@ -12,8 +72,8 @@
 **DSH 插件装配（根目录）**
 
 - `package.json` 声明 `dsh.bundle.patch`，`cordis.patch.yml` 往 profile 组合树里插一行。
-- `lib/index.js` 注册 4 个只读工具，并用官方 `@deepseek-ai/dsh-skill-filesystem` 提供方
-  按 rank 600 挂载随包技能（`includeDefaultRoots: false`）。
+- `lib/index.js` 注册 4 个只读工具。（初版用 `@deepseek-ai/dsh-skill-filesystem`
+  提供方挂载随包技能；该做法在 0.1.2 因宿主包不可解析而废弃，见上。）
 - `skills/a-stock-data/SKILL.md` 由根 SKILL.md 同步，frontmatter 归一为 DSH 认得的形态
   （自定义的 `origin` / `version` 收进 `metadata`，避免被当未知键整条丢弃）。
 

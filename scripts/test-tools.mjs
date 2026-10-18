@@ -41,12 +41,21 @@ function makeCtx() {
   const injected = [];
   const plugins = [];
   const logs = [];
+  // 技能提供方登记：0.1.2 起插件走 ctx.get("skills").registerProvider()，
+  // 所以假 ctx 必须提供这两个口，否则「技能挂载」这一节测的永远是失败路径。
+  const skillProviders = [];
 
   const ctx = {
     logger: {
       info: (...a) => logs.push(["info", a.join(" ")]),
       warn: (...a) => logs.push(["warn", a.join(" ")]),
       error: (...a) => logs.push(["error", a.join(" ")]),
+    },
+    // 宿主服务读取口（cordis Context.get）
+    get(kind) {
+      if (kind === "skills") return skills;
+      if (kind === "logger") return ctx.logger;
+      return undefined;
     },
     tools: {
       register(def) {
@@ -72,7 +81,18 @@ function makeCtx() {
       plugins.push({ mod, config });
     },
   };
-  return { ctx, tools, cleanups, injected, plugins, logs };
+
+  const skills = {
+    registerProvider(create) {
+      skillProviders.push(create);
+      return () => {
+        const i = skillProviders.indexOf(create);
+        if (i >= 0) skillProviders.splice(i, 1);
+      };
+    },
+  };
+
+  return { ctx, skills, skillProviders, tools, cleanups, injected, plugins, logs };
 }
 
 async function callTool(tools, toolName, args) {
@@ -146,10 +166,10 @@ async function main() {
   for (const n of ["astock_probe", "astock_env", "astock_endpoints", "astock_call"]) {
     check(`工具在册：${n}`, env.tools.has(n));
   }
-  // 注意：`@deepseek-ai/dsh-skill-filesystem` 是从 **DSH 安装目录**解析的，
-  // 裸 node 跑本脚本时解析不到属于预期（参考插件同样如此）。所以这里只断言
-  // 「确实尝试过挂载，且失败时给出了原因」；「挂载成功」这一条要在真机装机时验
-  // （astock_probe 的 skillsMount.ok）。放在第 2 节之后，因为要用到 probe0。
+  // 0.1.2 起：插件改为 ctx.get("skills").registerProvider()，不再运行时 import
+  // `@deepseek-ai/dsh-skill-filesystem`（那个包只存在于宿主自己的解析树里，
+  // 从插件目录恒为 ERR_MODULE_NOT_FOUND）。所以假 ctx 现在能提供 skills 服务，
+  // 这一节就可以硬断言「真的挂上了」，而不是旧版的「失败也算通过」。
 
   console.log("\n=== 2. effect 语义回归（注册即注销事故）===");
   const probe0 = await callTool(env.tools, "astock_probe", {});
@@ -173,9 +193,11 @@ async function main() {
 
   console.log("\n=== 3. 随包技能与路径 ===");
   check("attempted 了随包技能挂载", probe0.skillsMount.attempted === true);
-  check("挂载失败时给出了原因",
-    probe0.skillsMount.ok === true || String(probe0.skillsMount.detail ?? "").length > 0,
-    probe0.skillsMount.detail);
+  // 硬断言：挂载必须成功。旧版这里写的是「ok 或 至少给了原因」，
+  // 结果是挂载全挂也判通过 —— 30 通过 / 0 失败 的假绿就是这么来的。
+  check("随包技能挂载成功（不再是失败也算过）",
+    probe0.skillsMount.ok === true, probe0.skillsMount.detail);
+  check("登记了技能提供方", env.skillProviders.length === 1, `实际 ${env.skillProviders.length}`);
   console.log(`    （本次挂载：${probe0.skillsMount.ok ? "成功" : "未成功"} — ${probe0.skillsMount.detail}）`);
   check("随包 skills 目录存在", probe0.paths.bundledSkillDir.exists, probe0.paths.bundledSkillDir.path);
   check("随包 SKILL.md 所在技能目录存在", probe0.paths.skillDir.exists, probe0.paths.skillDir.path);
@@ -183,6 +205,32 @@ async function main() {
   check("命令行脚本存在", probe0.paths.cliPy.exists, probe0.paths.cliPy.path);
   check("SKILL.md 真的在技能目录里",
     existsSync(`${probe0.paths.skillDir.path}/SKILL.md`));
+
+  // 提供方契约回归：list/get 的字段是宿主拼技能目录用的，
+  // 少一个 locator 或名字对不上目录名，宿主就会静默不收录这个技能。
+  {
+    const create = env.skillProviders[0];
+    const provider = create({ signal: new AbortController().signal, invalidate() {} });
+    check("提供方自称 astock-bundled", provider.name === "astock-bundled", provider.name);
+
+    const listed = await provider.list({});
+    check("list 出且仅出 1 个技能", listed.length === 1, JSON.stringify(listed.map((s) => s.name)));
+    const one = listed[0];
+    check("技能名与目录名一致", one?.name === "a-stock-data", String(one?.name));
+    check("candidate 带 locator", typeof one?.locator?.path === "string", JSON.stringify(one?.locator));
+    check("candidate 带 resourceBase", one?.resourceBase?.kind === "directory", JSON.stringify(one?.resourceBase));
+    check("candidate 带 rank/source/provider",
+      one?.rank === 600 && one?.source === "bundled" && one?.provider === "astock-bundled",
+      `rank=${one?.rank} source=${one?.source} provider=${one?.provider}`);
+
+    const full = await provider.get(one, {});
+    check("get 读回正文", (full?.content?.length ?? 0) > 1000, String(full?.content?.length));
+    check("get 的 invocation 形态正确",
+      full?.invocation?.modelInvocable === true && full?.invocation?.userInvocable === true,
+      JSON.stringify(full?.invocation));
+    check("get 对不存在的文件返回 undefined 而不是抛错",
+      (await provider.get({ name: "nope", locator: { path: "Z:/__missing__/SKILL.md" } }, {})) === undefined);
+  }
 
   console.log("\n=== 4. astock_env ===");
   const envRes = await callTool(env.tools, "astock_env", {});

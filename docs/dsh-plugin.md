@@ -169,10 +169,10 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 | 运行时提取 | 91 个 python 块 / 保留 428 条语句 / 丢弃 260 条示例代码 / **104 个端点** |
 | 导入副作用 | 1.46 秒，无网络调用 |
 | 真实端点冒烟 | **49 / 52 通过**（3 项为上游数据约束或上游自身报错，见下） |
-| 工具面自测 | **34 / 34 通过**（含联网用例） |
+| 工具面自测 | **40 / 40 通过**（v0.1.2 起；v0.1.1 为 34 条，其中技能挂载一条是假绿，见 §6） |
 | skill 发现契约 | 全部通过 |
-| 真机安装 | `dsh plugin add` 成功；bundle 已追加；`--dump-config` 组合出该行 |
-| 真机运行 | 重启后 `astock_probe` 报 v0.1.1、**随包技能已挂载**（提供方 `astock-bundled`，根目录 `skills/`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4；`astock_call` 取到茅台与平安银行的真实行情 |
+| 真机安装 | v0.1.1 时 `dsh plugin add` 成功、bundle 已追加、`--dump-config` 组合出该行；**但升级到 DSH 0.2.1-rc.2 后整行被跳过**，根因见 §6 第一行 |
+| 真机运行 | v0.1.1 在 0.2.0-rc.2 下正常：`astock_probe` 报随包技能已挂载（提供方 `astock-bundled`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4、`astock_call` 取到真实行情。v0.1.2 需重启 DSH 后复核 |
 
 49/52 里未通过的 3 项，报错都由**提取出的 SKILL.md 代码自己抛出**，
 说明代码是被忠实提取并真正执行了的：
@@ -189,13 +189,17 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 
 | 现象 | 处置 |
 | --- | --- |
+| **整插件消失**（`astock_*` 工具全无、`Config` 目录里查不到该行，但 `dsh.profile.bundles` 明明列着它） | **先看版本声明，不要改 patch。** DSH 的 bundle 版本检查若判定不兼容，整排 `insert` 行会被静默跳过 —— 症状与「patch 写错」完全一样，但改 patch 没用。判据：`plugin_manager list_bundles` 里该 bundle 若带 `"error": {"code": "incompatible-version"}` 且 `"rows": []`，就是它。v0.1.1 的 `peerDependencies: "0.2.0-rc.2"`（精确版本）在运行时 `0.2.1-rc.2` 下正是此症；v0.1.2 已改为 `engines.dsh: ">=0.2.1-rc.2"` |
+| 随包技能没挂上，`skillsMount.detail` 报「无法解析 @deepseek-ai/dsh-skill-filesystem」 | v0.1.1 的已知问题。`@deepseek-ai/*` 是宿主依赖，只在其自身解析树内（桌面版在 `app.asar`），插件目录恒 `ERR_MODULE_NOT_FOUND`。v0.1.2 改为 `ctx.get("skills").registerProvider()`，不再 import 宿主包 |
 | 工具没出现 | 跑 `astock_probe`；`visibleAtCall` 为 0 说明装配期被注销，`skillsMount` 说明技能侧 |
+| 测试全绿但装机不可用 | `test-tools.mjs` 第 3 节在 v0.1.1 曾把「挂载失败」也判为通过（`ok \|\| detail 非空`），所以绿不代表可用。v0.1.2 已改硬断言 |
 | 工具报 `value is not lossless JSON` | 返回值里有 `undefined`（`JSON.stringify` 会静默丢掉，本地看不出）。v0.1.1 已修；**改过 `lib/` 后必须重启 DSH** 才生效——运行中的进程缓存已加载的 JS 模块，HMR 只热加新条目、不热换已有模块。重启后 `astock_probe` 报的版本号可用于确认 |
 | `python_unavailable` | 装 python.org 的 3.9+；Windows 上 Microsoft Store 的 `python3.exe` 是占位程序，会弹商店。也可用 `ASTOCK_PYTHON` 指定绝对路径 |
 | 缺依赖 | `astock_env` 会给出确切的 pip 命令 |
 | 端点评 `NameError` | 生成物与 SKILL.md 不同步，跑 `python scripts/build_runtime.py` |
 | 端点报 `RuntimeError` | 多半是来源格式变了或该标的确实没有数据——错误信息里带函数名与字段名 |
 | 大表只回了一点 | 看 `meta.truncated`；调大 `limit` 或缩小查询区间 |
+
 
 ---
 
