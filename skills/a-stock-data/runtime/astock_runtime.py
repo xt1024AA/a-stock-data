@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """a-stock-data 运行时 —— 由 scripts/build_runtime.py 从 SKILL.md 生成，请勿手改。
 
-生成源：SKILL.md（sha256 d30aa90edb881a45…）
+生成源：SKILL.md（sha256 de9a5c4736344f8c…）
 生成物：skills/a-stock-data/runtime/astock_runtime.py
 重新生成：python scripts/build_runtime.py
 

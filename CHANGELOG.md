@@ -1,5 +1,29 @@
 # Changelog
 
+## 源码清理 — 2026-10-18（打赏入口移除）
+
+按需求移除源码中的打赏入口。**不涉及任何端点实现与数据**：104 个端点、
+91 个 python 块、428 条保留语句全部不变，`build_runtime.py --check` 与
+`test-tools.mjs`（40/40）均通过。
+
+移除的位置：
+
+| 文件 | 内容 |
+| --- | --- |
+| `SKILL.md` 第 8–10 行 | 「项目主页 … 更新、反馈、支持作者」与作者联系方式引流段 |
+| `SKILL.md` 文末 | 「Star ⭐ 是最好的支持」引流行 |
+| `skills/a-stock-data/SKILL.md` | 同上两处（随包副本由重建同步） |
+| `.github/FUNDING.yml` | `buy_me_a_coffee` / `ifdian` 资助配置 |
+| `assets/bmc-qr.png`、`assets/bmc-sponsor.png` | 打赏二维码图（仓库内无任何引用） |
+
+两点说明：
+
+- 编辑 SKILL.md 后必须跑一次 `python scripts/build_runtime.py`。生成物里记着
+  SKILL.md 的 sha256，只改文档不重建会让 `--check` 报「生成物与 SKILL.md 不同步」。
+- 正文删减 225 字符（327840 → 327615），根与随包 SKILL.md 仍逐字一致。
+
+---
+
 ## a-stock-data-DSH — 2026-10-18（v0.1.2）
 
 适配 DSH 运行时 **0.2.1-rc.2**。这一版修的是一个**整插件静默消失**的问题，

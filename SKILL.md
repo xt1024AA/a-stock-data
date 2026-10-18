@@ -5,10 +5,6 @@ origin: custom
 version: 3.10.2
 ---
 
-> 📦 项目主页：https://github.com/simonlin1212/a-stock-data — 更新、反馈、支持作者
-> 
-> 作者：Simon 林 · X [@linsizhen](https://x.com/linsizhen) · 邮箱：simonlin0423@gmail.com
-
 # A股全栈数据工具包 V3.10.2
 
 十五层数据架构，87 个能力端点（82 主端点 + 5 备胎）、34 个来源。V3.10 新增的 2 个入口于 2026-09-22 实测，V3.9 新增的 25 个入口于 2026-09-20 实测；旧端点的验证日期见各章节。覆盖主板/创业板/科创板/ST，北交所覆盖依端点而异；已有备胎的数据可按「备用源速查」降级。
@@ -7579,7 +7575,3 @@ export IWENCAI_API_KEY="your_key_here"
 
 # 5. 启动 Claude Code，说"查一下688017的估值"即可自动激活
 ```
-
----
-
-> 📦 https://github.com/simonlin1212/a-stock-data — Star ⭐ 是最好的支持
