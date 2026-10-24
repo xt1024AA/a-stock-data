@@ -16,7 +16,7 @@ import sys
 import types
 import unittest
 import zipfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -1174,12 +1174,17 @@ class SseFeedTests(unittest.TestCase):
             return ns["sse_e_interaction"](code)
 
     def test_item_id_and_times_must_parse(self):
-        """时间格式变了还照常返回，就是把「源格式变了」变成一列 None（实测 500 条问答无一缺时间）。"""
+        """时间认不出必须报错，不能变成一列 None；但真时间（含「昨天 18:22」和 ISO 写法）要认，不能当格式变了。
+        实测 2026-10-23：回复时间是相对写法，提问时间是绝对写法，两种并存。"""
         out = self.feed(sse_item())
         self.assertEqual((out.id[0], out.code[0], out.question_time[0], out.answer_time[0]),
                          ("123", "600000", "2026-09-18 10:20", "2026-09-19 09:00"))
-        for html in (sse_item(item_id="abc"), sse_item(qtime="2026-09-18 10:20"),
-                     sse_item(atime="2026-09-19 09:00"), sse_item(atime="")):
+        iso = self.feed(sse_item(qtime="2026-09-18 10:20", atime="2026-09-19 09:00"))
+        self.assertEqual((iso.question_time[0], iso.answer_time[0]), ("2026-09-18 10:20", "2026-09-19 09:00"))
+        rel = self.feed(sse_item(atime="昨天 18:22"))
+        self.assertRegex(rel.answer_time[0], r"^\d{4}-\d{2}-\d{2} 18:22$")
+        for html in (sse_item(item_id="abc"), sse_item(qtime="时间待定"),
+                     sse_item(atime="稍后"), sse_item(atime="")):
             with self.subTest(html=html[:80]), self.assertRaises(RuntimeError):
                 self.feed(html)
 
@@ -1611,6 +1616,88 @@ class CffexDailyWitnessTests(unittest.TestCase):
             for response in bad:
                 with self.subTest(fn=fn, body=response.content[:40]), self.assertRaises(RuntimeError):
                     self.daily(fn, response)
+
+
+class SseInteractionTimeTests(unittest.TestCase):
+    """上证e互动的时间列：提问是绝对写法，1 天内的回复是相对写法（「昨天 18:22」，2026-10-23 实测）。"""
+
+    NOW = datetime(2026, 10, 23, 9, 0)
+
+    FEED = """<div class="m_feed_item" id="item-1798068">
+      <div class="m_feed_detail m_qa_detail">
+        <div class="m_feed_txt"><a href="x">:贵州茅台(600519)</a>请问今年的分红安排？</div>
+        <div class="m_feed_from"><span>2026年10月21日 17:47</span></div>
+      </div>
+      <div class="m_feed_detail m_qa">
+        <div class="m_feed_txt">感谢您的关注，详见公司公告。</div>
+        <div class="m_feed_from" style="padding-left: 35px;"><span>昨天 18:22</span></div>
+      </div>
+    </div>"""
+
+    def setUp(self):
+        self.ns = load_shipped_code()
+
+    def sse_time(self, text):
+        return self.ns["_sse_time"](text, now=self.NOW)
+
+    def test_relative_reply_time_maps_to_beijing_date(self):
+        self.assertEqual(self.sse_time("昨天 18:22"), "2026-10-22 18:22")
+        self.assertEqual(self.sse_time("今天 09:05"), "2026-10-23 09:05")
+        self.assertEqual(self.sse_time("前天 23:59"), "2026-10-21 23:59")
+
+    def test_other_site_time_shapes(self):
+        self.assertEqual(self.sse_time("2026年10月21日 17:47"), "2026-10-21 17:47")
+        self.assertEqual(self.sse_time("2026-10-21 17:47"), "2026-10-21 17:47")
+        self.assertEqual(self.sse_time("10-20 08:30"), "2026-10-20 08:30")
+        self.assertEqual(self.sse_time("35分钟前"), "2026-10-23 08:25")
+        self.assertEqual(self.sse_time("3小时前"), "2026-10-23 06:00")
+        self.assertEqual(self.sse_time("刚刚"), "2026-10-23 09:00")
+        self.assertIsNone(self.sse_time("时间待定"))
+
+    def test_parse_feed_keeps_relative_reply_time(self):
+        # _sse_parse_feed 内部用真实「现在」，这里固定住，断言才不随运行日期漂移
+        real_time = self.ns["_sse_time"]
+        with patch.dict(self.ns, {"_sse_time": lambda text: real_time(text, now=self.NOW)}):
+            rows = self.ns["_sse_parse_feed"](self.FEED)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["question_time"], "2026-10-21 17:47")
+        self.assertEqual(rows[0]["answer_time"], "2026-10-22 18:22")
+
+    def test_invalid_time_returns_none(self):
+        for text in ("昨天 25:00", "09:99"):
+            with self.subTest(text=text):
+                self.assertIsNone(self.sse_time(text))
+
+    def test_huge_ago_returns_none(self):
+        for text in ("999999999天前", "99999999999999999999天前", "999999999999小时前"):
+            with self.subTest(text=text):
+                self.assertIsNone(self.sse_time(text))
+        self.assertEqual(self.sse_time("2天前"), "2026-10-21 09:00")
+
+    def test_invalid_feed_time_fails_loudly(self):
+        real_time = self.ns["_sse_time"]
+        with patch.dict(self.ns, {"_sse_time": lambda text: real_time(text, now=self.NOW)}):
+            for invalid in ("昨天 25:00", "09:99"):
+                for original, field in (("昨天 18:22", "回复"),
+                                        ("2026年10月21日 17:47", "提问")):
+                    with self.subTest(text=invalid, field=field):
+                        text = self.FEED.replace(original, invalid)
+                        with self.assertRaisesRegex(RuntimeError, field + "时间认不出"):
+                            self.ns["_sse_parse_feed"](text)
+
+    def test_month_day_year_rollover(self):
+        self.assertEqual(self.ns["_sse_time"]("12-31 18:00", now=datetime(2026, 1, 5, 9, 0)),
+                         "2025-12-31 18:00")
+        self.assertIsNone(self.ns["_sse_time"]("02-29 10:00", now=datetime(2024, 1, 5, 9, 0)))
+
+    def test_unknown_time_still_fails_loudly(self):
+        """认不出就必须报错，不能把「格式变了」悄悄变成一列 None。"""
+        text = self.FEED.replace("2026年10月21日 17:47", "时间待定")
+        with self.assertRaisesRegex(RuntimeError, "提问时间认不出"):
+            self.ns["_sse_parse_feed"](text)
+        text = self.FEED.replace("昨天 18:22", "时间待定")
+        with self.assertRaisesRegex(RuntimeError, "回复时间认不出"):
+            self.ns["_sse_parse_feed"](text)
 
 
 LIVE_DATE = os.environ.get("ASTOCK_LIVE_V39")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """a-stock-data 运行时 —— 由 scripts/build_runtime.py 从 SKILL.md 生成，请勿手改。
 
-生成源：SKILL.md（sha256 de9a5c4736344f8c…）
+生成源：SKILL.md（sha256 3776ed0d285e51a4…）
 生成物：skills/a-stock-data/runtime/astock_runtime.py
 重新生成：python scripts/build_runtime.py
 
@@ -2395,10 +2395,12 @@ def em_hot_concept(code: str) -> list[dict]:
         return []
     return [{'concept': x.get('conceptName'), 'bk': x.get('conceptId'), 'hit': x.get('hitCount')} for x in data]
 
-# ---- SKILL.md block 64 (in 147 行 → out 115 行) ----
+# ---- SKILL.md block 64 (in 209 行 → out 171 行) ----
+import datetime as _dt
 import html as _html
 import re
 SSE_E_BASE = 'https://sns.sseinfo.com'
+_SSE_CN_TZ = _dt.timezone(_dt.timedelta(hours=8))
 _sse_uid_cache = {}
 _sse_company_pages = {}
 _SSE_COMPANY_END = '没有任何上市公司的信息'
@@ -2443,10 +2445,64 @@ def _sse_company_uid(code):
 
 def _sse_text(fragment):
     return _html.unescape(re.sub('<[^>]+>', '', fragment)).strip()
+_SSE_ABS_TIME = re.compile('(\\d{4})\\s*[年\\-/]\\s*(\\d{1,2})\\s*[月\\-/]\\s*(\\d{1,2})\\s*日?\\s*(\\d{1,2}):(\\d{2})')
+_SSE_DAY_WORD_TIME = re.compile('^(今天|昨天|前天)\\s*(\\d{1,2}):(\\d{2})$')
+_SSE_MONTH_DAY_TIME = re.compile('^(\\d{1,2})-(\\d{1,2})\\s+(\\d{1,2}):(\\d{2})$')
+_SSE_AGO_TIME = re.compile('^(\\d+)\\s*(秒|分钟|小时|天)前$')
+_SSE_CLOCK_TIME = re.compile('^(\\d{1,2}):(\\d{2})$')
+_SSE_DAY_WORD = {'今天': 0, '昨天': 1, '前天': 2}
+_SSE_AGO_UNIT = {'秒': 'seconds', '分钟': 'minutes', '小时': 'hours', '天': 'days'}
 
-def _sse_time(text):
-    match = re.search('(\\d{4})年(\\d{2})月(\\d{2})日\\s*(\\d{2}:\\d{2})', text)
-    return f'{match.group(1)}-{match.group(2)}-{match.group(3)} {match.group(4)}' if match else None
+def _sse_time(text, now=None):
+    """把站点的时间文案换算成「YYYY-MM-DD HH:MM」；认不出返回 None，由调用方决定是否报错。
+
+    相对写法按北京时间算；now 可注入，便于离线测试固定日期。
+    """
+    text = (text or '').strip()
+    now = (now or _dt.datetime.now(_SSE_CN_TZ)).replace(tzinfo=None)
+    match = _SSE_ABS_TIME.search(text)
+    if match:
+        year, month, day, hour, minute = (int(group) for group in match.groups())
+        try:
+            return _dt.datetime(year, month, day, hour, minute).strftime('%Y-%m-%d %H:%M')
+        except ValueError:
+            return None
+    match = _SSE_DAY_WORD_TIME.match(text)
+    if match:
+        when = now - _dt.timedelta(days=_SSE_DAY_WORD[match.group(1)])
+        try:
+            return when.replace(hour=int(match.group(2)), minute=int(match.group(3)), second=0, microsecond=0).strftime('%Y-%m-%d %H:%M')
+        except ValueError:
+            return None
+    match = _SSE_MONTH_DAY_TIME.match(text)
+    if match:
+        month, day, hour, minute = (int(group) for group in match.groups())
+        try:
+            when = _dt.datetime(now.year, month, day, hour, minute)
+        except ValueError:
+            return None
+        if when - now > _dt.timedelta(days=1):
+            try:
+                when = when.replace(year=now.year - 1)
+            except ValueError:
+                return None
+        return when.strftime('%Y-%m-%d %H:%M')
+    match = _SSE_AGO_TIME.match(text)
+    if match:
+        try:
+            delta = _dt.timedelta(**{_SSE_AGO_UNIT[match.group(2)]: int(match.group(1))})
+            return (now - delta).strftime('%Y-%m-%d %H:%M')
+        except (OverflowError, ValueError):
+            return None
+    if text in ('刚刚', '刚才'):
+        return now.strftime('%Y-%m-%d %H:%M')
+    match = _SSE_CLOCK_TIME.match(text)
+    if match:
+        try:
+            return now.replace(hour=int(match.group(1)), minute=int(match.group(2)), second=0, microsecond=0).strftime('%Y-%m-%d %H:%M')
+        except ValueError:
+            return None
+    return None
 
 def _sse_required_time(item_id, text):
     """问答时间必须解析出来：认不出还照常返回，就是把「时间格式变了」变成了一列 None。"""

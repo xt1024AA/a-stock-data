@@ -1,6 +1,6 @@
 {
   "generatedBy": "scripts/build_runtime.py",
-  "skillSha256": "de9a5c4736344f8cbb843d2f1f3d49d99469b9e19cc8db3534ad28397d0a06c6",
+  "skillSha256": "3776ed0d285e51a478e2bdefef728640954389db5c932afab175c7aa7cd62772",
   "softStubs": [],
   "blocks": 91,
   "endpointCount": 104,

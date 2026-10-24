@@ -4,8 +4,9 @@
 用文档 + 代码块的方式教模型「怎么写代码去取 A 股数据」。
 
 `a-stock-data-DSH` 分支在**不牺牲原有形态**的前提下，把它同时做成一个
-**DeepSeek Harness（DSH）插件**。根目录的 `SKILL.md` 一字未动，
-Claude Code / Codex / OpenClaw 等宿主照旧可用；DSH 走下面这套新装配。
+**DeepSeek Harness（DSH）插件**。根目录的 `SKILL.md` 的端点实现一字未改
+（只清理过打赏 / 引流段，见 CHANGELOG），Claude Code / Codex / OpenClaw 等宿主照旧可用；
+DSH 走下面这套新装配。
 
 ---
 
@@ -166,21 +167,20 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 
 | 项目 | 结果 |
 | --- | --- |
-| 运行时提取 | 91 个 python 块 / 保留 428 条语句 / 丢弃 260 条示例代码 / **104 个端点** |
+| 运行时提取 | 91 个 python 块 / 保留 437 条语句 / 丢弃 260 条示例代码 / **104 个端点** |
 | 导入副作用 | 1.46 秒，无网络调用 |
-| 真实端点冒烟 | **49 / 52 通过**（3 项为上游数据约束或上游自身报错，见下） |
-| 工具面自测 | **40 / 40 通过**（v0.1.2 起；v0.1.1 为 34 条，其中技能挂载一条是假绿，见 §6） |
+| 真实端点冒烟 | **49 / 52 通过**（v0.1.2 记录；v0.1.3 随上游 v3.10.3 修复并联网复测 `sse_e_interaction`，余下 2 项为上游数据约束） |
+| 工具面自测 | **40 / 40 通过**（离线）；`--live` 为 **44 / 44**。v0.1.1 为 34 条，其中技能挂载一条是假绿，见 §6 |
 | skill 发现契约 | 全部通过 |
 | 真机安装 | v0.1.1 时 `dsh plugin add` 成功、bundle 已追加、`--dump-config` 组合出该行；**但升级到 DSH 0.2.1-rc.2 后整行被跳过**，根因见 §6 第一行 |
-| 真机运行 | v0.1.1 在 0.2.0-rc.2 下正常：`astock_probe` 报随包技能已挂载（提供方 `astock-bundled`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4、`astock_call` 取到真实行情。v0.1.2 需重启 DSH 后复核 |
+| 真机运行 | v0.1.1 在 0.2.0-rc.2 下正常：`astock_probe` 报随包技能已挂载（提供方 `astock-bundled`，rank 600）、工具面装配 4 / 注册 4 / 此刻在册 4、`astock_call` 取到真实行情。v0.1.3 改的是随包运行时内容，需重启 DSH 后复核版本号 |
 
-49/52 里未通过的 3 项，报错都由**提取出的 SKILL.md 代码自己抛出**，
-说明代码是被忠实提取并真正执行了的：
+v0.1.2 冒烟时未通过 3 项，报错都由**提取出的 SKILL.md 代码自己抛出**，
+说明代码是被忠实提取并真正执行了的。其中 `sse_e_interaction` 已随上游 v3.10.3 修复：
 
 | 端点 | 情况 |
 | --- | --- |
 | `bse_quote_backup` | 只提供当前快照，传入历史交易日会明确拒绝（上游设计） |
-| `sse_e_interaction` | 上游对相对时间 `昨天 18:25` 的解析未覆盖 |
 | `st_stock_list` | 快照为空时的上游自检报错（数据源侧波动） |
 
 ---
@@ -207,6 +207,23 @@ node scripts/test-tools.mjs --live    # 追加联网用例
 
 本分支只**增加** DSH 插件装配，不修改上游的数据实现：
 
-- 根 `SKILL.md` 一字未改，上游同步（`git pull`）后重新生成即可。
+- 根 `SKILL.md` 的端点实现一字未改（只清理过打赏 / 引流段），上游同步后重新生成即可。
 - 所有端点实现都来自 SKILL.md，本仓库不维护第二份实现。
 - 上游改了端点 → `python scripts/build_runtime.py` 重新生成 → `--check` 会在 CI 里守住。
+
+### 7.1 同步上游的三步
+
+```bash
+git fetch origin main && git merge origin/main   # 合并上游（冲突只会出现在下面两处）
+python scripts/build_runtime.py                  # 重新生成随包 SKILL.md + 运行时
+python scripts/build_runtime.py --check && python scripts/check_skill_contract.py && node scripts/test-tools.mjs
+```
+
+两处可预期的冲突：
+
+- `SKILL.md` 头部：本分支删掉了「项目主页 / 作者联系方式」引流段，上游若在同一区域改标题或加版本说明，
+  git 会把两边的改动挤成一个冲突块 —— 取上游的新标题，**不要**把引流段加回来。
+- `CHANGELOG.md`：本分支的插件记录与上游的版本记录都写在文件顶部 —— 两段都保留，按日期从新到旧排。
+
+改完 `SKILL.md`（含解决冲突）必须重建一次，否则 `--check` 会报生成物与源文件不同步。
+运行时只是内容更新时，**不用**改 `lib/`；重启 DSH 即可让新运行时生效（`astock_probe` 的版本号可用于确认）。
