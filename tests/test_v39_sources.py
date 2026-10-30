@@ -1625,7 +1625,7 @@ class SseInteractionTimeTests(unittest.TestCase):
 
     FEED = """<div class="m_feed_item" id="item-1798068">
       <div class="m_feed_detail m_qa_detail">
-        <div class="m_feed_txt"><a href="x">:贵州茅台(600519)</a>请问今年的分红安排？</div>
+        <div class="m_feed_txt"><a href="x">:示例公司(000000)</a>请问今年的分红安排？</div>
         <div class="m_feed_from"><span>2026年10月21日 17:47</span></div>
       </div>
       <div class="m_feed_detail m_qa">
